@@ -1,4 +1,5 @@
 package Rpt
+/*
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -15,7 +16,7 @@ object LocationRptCore {
     val df: DataFrame = ssc.read.parquet("D:\\out_2019-08-20")
     import ssc.implicits._
     val res: RDD[((String, String), List[Double])] = df.map(row => {
-      //把需要的字段全部
+      //把需要的字段全部取出
       val requestmode: Int = row.getAs[Int]("requestmode")
       val processnode: Int = row.getAs[Int]("processnode")
       val iseffective: Int = row.getAs[Int]("iseffective")
@@ -49,3 +50,4 @@ object LocationRptCore {
     ssc.stop()
   }
 }
+*/
