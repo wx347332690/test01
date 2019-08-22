@@ -1,5 +1,5 @@
-package Rpt
-/*
+package rpt
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -15,7 +15,7 @@ object LocationRptCore {
     val ssc = SparkSession.builder.config(conf).getOrCreate()
     val df: DataFrame = ssc.read.parquet("D:\\out_2019-08-20")
     import ssc.implicits._
-    val res: RDD[((String, String), List[Double])] = df.map(row => {
+    val res1: RDD[((String, String), List[Double])] = df.map(row => {
       //把需要的字段全部取出
       val requestmode: Int = row.getAs[Int]("requestmode")
       val processnode: Int = row.getAs[Int]("processnode")
@@ -42,7 +42,7 @@ object LocationRptCore {
         list1.zip(list2).map(t => t._1 + t._2)
       })
 
-    res.saveAsTextFile("d://out-20190821-1")
+    res1.saveAsTextFile("d://out-201908222")
 
 
 
@@ -50,4 +50,3 @@ object LocationRptCore {
     ssc.stop()
   }
 }
-*/
