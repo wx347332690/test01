@@ -1,4 +1,4 @@
-package utils
+package Utils
 
 /**
   * 指标方法
@@ -28,10 +28,10 @@ object RptUtils {
   }
   }
   //此方法处理竞价操作
-  def Ad(iseffective:Int,isbilling:Int,isbid:Int,adorderid:Int,winprice:Double,adpayment:Double):List[Double]={
-  if(iseffective==1&&isbilling==1&&isbid==1) {
+  def Ad(iseffective:Int,isbilling:Int,isbid:Int,iswin:Int,adorderid:Int,winprice:Double,adpayment:Double):List[Double]={
+  if(iseffective==1&&isbilling==1&&iswin==1&&isbid==1) {
     List[Double](1,0,0,0)
-  }else if(iseffective==1&&isbilling==1&&winprice==1&&adorderid!=0){
+  }else if(iseffective==1&&isbilling==1&&iswin==1&&winprice==1&&adorderid!=0){
     List[Double](0,1,winprice/1000.0,adpayment/1000.0)
   } else {
     List[Double](1,0,0,0)

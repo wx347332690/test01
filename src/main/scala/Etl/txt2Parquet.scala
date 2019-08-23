@@ -1,6 +1,6 @@
-package etl
-
-import utils.{SchemaUtils, Utils2Type}
+package Etl
+/*
+import Utils.{SchemaUtils, Utils2Type}
 import org.apache.spark.sql.{Row, SQLContext}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -128,3 +128,4 @@ object txt2Parquet {
     sc.stop()
   }
 }
+*/

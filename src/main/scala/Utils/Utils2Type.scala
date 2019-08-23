@@ -1,4 +1,4 @@
-package utils
+package Utils
 
 object Utils2Type {
   def toDouble(str: String): Double = {

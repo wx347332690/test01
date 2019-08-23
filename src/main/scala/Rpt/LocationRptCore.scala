@@ -1,9 +1,9 @@
-package rpt
+package Rpt
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
-import utils.RptUtils
+import Utils.RptUtils
 /**
   * 地域分布情况
   */
@@ -13,9 +13,9 @@ object LocationRptCore {
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     val sc = new SparkContext(conf)
     val ssc = SparkSession.builder.config(conf).getOrCreate()
-    val df: DataFrame = ssc.read.parquet("D:\\out_2019-08-20")
+    val dataframe: DataFrame = ssc.read.parquet("D:\\out_20190820")
     import ssc.implicits._
-    val res1: RDD[((String, String), List[Double])] = df.map(row => {
+    val res1: RDD[((String, String), List[Double])] = dataframe.map(row => {
       //把需要的字段全部取出
       val requestmode: Int = row.getAs[Int]("requestmode")
       val processnode: Int = row.getAs[Int]("processnode")
@@ -33,7 +33,7 @@ object LocationRptCore {
 
       val request = RptUtils.request(requestmode, processnode)
       val click = RptUtils.click(requestmode, iseffective)
-      val ad = RptUtils.Ad(iseffective, isbilling, isbid, adorderid, winprice, adpayment)
+      val ad = RptUtils.Ad(iseffective, isbilling, isbid,iswin, adorderid, winprice, adpayment)
       ((pro, city), request ++ ad ++ click )
     }).rdd
       //根据key进行聚合value
