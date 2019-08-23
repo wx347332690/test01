@@ -4,16 +4,16 @@ import java.util.Properties
 
 import com.typesafe.config.ConfigFactory
 import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 
 object LocationRptSQL {
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf().setAppName(this.getClass.getName).setMaster("local[1]")
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     val sc = new SparkContext(conf)
-    val spark = SparkSession.builder.config(conf).getOrCreate()
+    val spark  = new SQLContext(sc)
     val df: DataFrame = spark.read.parquet("D:\\out_20190820")
-    df.createOrReplaceTempView("logs")
+    df.registerTempTable("logs")
     val res: DataFrame = spark.sql("select provincename,cityname," +
       "sum(case when requestmode==1 and processnode>=1 then 1 else 0 end) sumrequest1," +
       "sum(case when requestmode==1 and processnode>=2 then 1 else 0 end) sumrequest2," +
@@ -33,6 +33,6 @@ object LocationRptSQL {
 
 
     sc.stop()
-    spark.stop()
+
   }
 }

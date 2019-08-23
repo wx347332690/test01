@@ -1,9 +1,10 @@
 package Tag
 
 import Utils.Tags
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.Row
 
-object TagsKeyWords extends Tags{
+object TagsKeyWords extends Tags {
   /**
     * 打标签的统一接口
     */
@@ -12,16 +13,13 @@ object TagsKeyWords extends Tags{
 
     //解析参数
     val row = args(0).asInstanceOf[Row]
-  //keywords: String,
-    val keyWords:String = row.getAs[String]("keywords")
-    if (keyWords.contains("|")) {
-      val keys: Array[String] = keyWords.split("\\|")
-      if (keys.length >= 3 && keys.length <= 8) {
-        list :+= ("K" + keyWords, 1)
-      }
-    }else{
-      list:+=("K"+keyWords,1)
-    }
-    list
+    val stopword = args(1).asInstanceOf[Broadcast[Map[String,String]]]
+    //获取关键字,打标签
+    val keys = row.getAs[String]("keywords").split("\\|")
+
+    keys.filter(word => {
+      word.length >= 3 && word.length <= 8 && !stopword.value.contains(word)
+    }).foreach(word=>list:+=("K"+word,1))
+  list
   }
 }

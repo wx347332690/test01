@@ -4,7 +4,7 @@ import Utils.RptUtils
 import org.apache.commons.lang.StringUtils
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.{SparkConf, SparkContext}
 
 
@@ -14,19 +14,18 @@ object AppRpt {
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     //    val sc = new SparkContext(conf)
     val sc = new SparkContext(conf)
-    val spark = SparkSession.builder.config(conf).getOrCreate()
+    val spark = new SQLContext(sc)
 
 
     val df: DataFrame = spark.read.parquet("D:/out_20190820")
-    import spark.implicits._
-    val maped = sc.textFile("D:\\Spark项目阶段视频\\项目day01\\Spark用户画像分析\\app_dict.txt")
+    val rdd: RDD[(String, String)] = sc.textFile("D:\\Spark项目阶段视频\\项目day01\\Spark用户画像分析\\app_dict.txt")
       .map(_.split("\t", -1))
-//    val filtered = maped.filter(_.length >= 5)
-    val ds: RDD[(String, String)] =maped.map(arr => (arr(4), arr(1)))
+      .filter(_.length >= 5)
+      .map(arr => (arr(4), arr(1)))
 
 
 
-    val logs: Map[String, String] = ds.collect().toMap
+    val logs: Map[String, String] = rdd.collect().toMap
     logs.foreach(println)
     //将字典数据进行广播
     val broadcastMediaInfo: Broadcast[Map[String, String]] = sc.broadcast(logs)
@@ -53,25 +52,24 @@ object AppRpt {
       val click = RptUtils.click(requestmode, iseffective)
       val ad = RptUtils.Ad(iseffective, isbilling, isbid, iswin, adorderid, winprice, adpayment)
       (appname, request ++ click ++ ad)
-    }).rdd
-      .reduceByKey((list1, list2) =>
-        (list1 zip list2)
-          .map(x => x._1 + x._2)
-      ).map(x => {
-      (x._1, x._2.head, x._2(1), x._2(2), x._2(3), x._2(4), x._2(5), x._2(6), x._2(7), x._2(8))
+    }).reduceByKey((list1, list2) =>
+      (list1 zip list2)
+        .map(x => x._1 + x._2)
+    ).map(x => {
+      (x._1, x._2(0), x._2(1), x._2(2), x._2(3), x._2(4), x._2(5), x._2(6), x._2(7), x._2(8))
     }
     )
 
-    res.toDF().collect().foreach(println)
-//    //Rdd转换为df存储在mysql中
-//    val config = ConfigFactory.load()
-//    val prop = new Properties()
-//    prop.setProperty("user", config.getString("jdbc.user"))
-//    prop.setProperty("password", config.getString("jdbc.password"))
-//    res.toDF().write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
+    res.collect().foreach(println)
+    //    //Rdd转换为df存储在mysql中
+    //    val config = ConfigFactory.load()
+    //    val prop = new Properties()
+    //    prop.setProperty("user", config.getString("jdbc.user"))
+    //    prop.setProperty("password", config.getString("jdbc.password"))
+    //    res.toDF().write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
 
 
-//    spark.stop()
+    sc.stop()
   }
 }
 

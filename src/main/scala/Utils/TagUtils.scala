@@ -11,7 +11,7 @@ object TagUtils {
     """
       |imei != '' or mac != '' or openudid != '' or androidid != '' or idfa !='' or
       |imeimd5 != '' or macmd5 != '' or openudidmd5 != '' or androididmd5 != '' or idfamd5 !='' or
-      |imeisha1 != '' or macsha1 != '' or openudidsha1 != '' or androidishda1 != '' or idfasha1 !=''
+      |imeisha1 != '' or macsha1 != '' or openudidsha1 != '' or androididsha1 != '' or idfasha1 !=''
     """.stripMargin
 
   def getOneUserId(row: Row): String = {
@@ -25,7 +25,7 @@ object TagUtils {
       case v if StringUtils.isNotBlank(v.getAs[String]("imeimd5")) => "IM5:" + v.getAs[String]("imeimd5")
       case v if StringUtils.isNotBlank(v.getAs[String]("macmd5")) => "MAC5:" + v.getAs[String]("macmd5")
       case v if StringUtils.isNotBlank(v.getAs[String]("openudidmd5")) => "OPEN5:" + v.getAs[String]("openudidmd5")
-      case v if StringUtils.isNotBlank(v.getAs[String]("androididmd5")) => "AN5:" + v.getAs[String]("androididmd5")
+      case v if StringUtils.isNotBlank(v.getAs[String]("androididmd5 ")) => "AN5:" + v.getAs[String]("androididmd5")
       case v if StringUtils.isNotBlank(v.getAs[String]("idfamd5")) => "IDFA5:" + v.getAs[String]("idfamd5")
       case v if StringUtils.isNotBlank(v.getAs[String]("imeisha1")) => "IM1:" + v.getAs[String]("imeisha1")
       case v if StringUtils.isNotBlank(v.getAs[String]("macsha1")) => "MAC1:" + v.getAs[String]("macsha1")

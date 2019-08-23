@@ -26,14 +26,8 @@ object TagsAd extends Tags {
     if (StringUtils.isNotBlank(adname)) {
       list :+= ("LN" + adname, 1)
     }
-    val appname: String = row.getAs[String]("Appname")
-    if (StringUtils.isNotBlank(appname)) {
-      list :+= ("APP" + appname, 1)
-    }
-    val channel: String = row.getAs[String]("adplatformproviderid")
-    if (StringUtils.isNotBlank(channel)) {
-      list :+= ("CN" + channel, 1)
-    }
+
+
 
     list
   }

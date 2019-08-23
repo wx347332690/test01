@@ -1,8 +1,8 @@
 package Rpt
 
-import Utils.RptUtils
+import Utils.{DBConnectionPool, RptUtils}
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.{SparkConf, SparkContext}
 
 object AppRpt {
@@ -15,11 +15,7 @@ object AppRpt {
 
     val sc: SparkContext = new SparkContext(conf)
 
-    val spark: SparkSession = SparkSession
-      .builder()
-      .config(conf)
-      .getOrCreate()
-
+    val spark  = new SQLContext(sc)
     // 加载数据库连接的信息
     //    val load: Config = ConfigFactory.load()
     // 获取数据库链接信息
@@ -39,7 +35,7 @@ object AppRpt {
 
     // 读取需要统计的文件内容
     val df: DataFrame = spark.read.parquet("D://out_20190820")
-    import spark.implicits._
+
 
     df.map(row => {
       // 把需要的字段全部取出
@@ -66,8 +62,6 @@ object AppRpt {
         appid, appname, request ++ click ++ ad
       )
     })
-      // 转为rdd
-      .rdd
       // 使用AppId从字典集获取APPName，如果没有则使用原始APPName
       .map(res => {
       (appInfo.value.getOrElse(res._1, res._2), res._3)
@@ -80,23 +74,23 @@ object AppRpt {
       .map(res => {
       (res._1, res._2(0), res._2(1), res._2(2), res._2(3), res._2(4), res._2(5), res._2(6), res._2(7), res._2(8))
     })
-//      // 使用数据库连接池写入到MySQL
-//      // 使用此方式需要先在数据库中建立对应的表
-//      .foreachPartition(pr => {
-//      // 获取数据库连接池中的连接
-//      val connection: Connection = DBConnectionPool.getConn()
-//      val statement: Statement = connection.createStatement()
-//      // 对每一个rdd进行插入数据库的操作
-//      pr.foreach(x => {
-//        statement.execute(s"insert into AppRpt values('${x._1.toString}','${x._2.toInt}','${x._3.toInt}','${x._4.toInt}','${x._5.toInt}','${x._6.toInt}','${x._7.toInt}','${x._8.toString}','${x._9.toDouble}','${x._10.toDouble}') ")
-//      })
-//      // 释放连接，将链接还给连接池
-//      DBConnectionPool.releaseCon(connection)
-//    })
-//
-//    // 通过DF反射的方式，写入到数据库
-//    //      .toDF("媒体类型", "总请求", "有效请求", "广告请求", "参与竞价数", "竞价成功数", "展示数", "点击数", "广告成本", "广告消费")
-//    //      .write.mode("append").jdbc(url, "AppRpt", prop)
+      // 使用数据库连接池写入到MySQL
+      // 使用此方式需要先在数据库中建立对应的表
+      .foreachPartition(pr => {
+      // 获取数据库连接池中的连接
+ val connection = DBConnectionPool.getConn()
+ val statement = connection.createStatement()
+      // 对每一个rdd进行插入数据库的操作
+      pr.foreach(x => {
+        statement.execute(s"insert into AppRpt values('${x._1.toString}','${x._2.toInt}','${x._3.toInt}','${x._4.toInt}','${x._5.toInt}','${x._6.toInt}','${x._7.toInt}','${x._8.toString}','${x._9.toDouble}','${x._10.toDouble}') ")
+      })
+      // 释放连接，将链接还给连接池
+      DBConnectionPool.releaseCon(connection)
+    })
+
+    // 通过DF反射的方式，写入到数据库
+    //      .toDF("媒体类型", "总请求", "有效请求", "广告请求", "参与竞价数", "竞价成功数", "展示数", "点击数", "广告成本", "广告消费")
+    //      .write.mode("append").jdbc(url, "AppRpt", prop)
 
   }
 
