@@ -1,10 +1,13 @@
 package Rpt
 
+import java.util.Properties
+
 import Utils.RptUtils
+import com.typesafe.config.ConfigFactory
 import org.apache.commons.lang.StringUtils
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 
 
@@ -14,7 +17,7 @@ object AppRpt {
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     //    val sc = new SparkContext(conf)
     val sc = new SparkContext(conf)
-    val spark = new SQLContext(sc)
+    val spark = SparkSession.builder().config(conf).getOrCreate()
 
 
     val df: DataFrame = spark.read.parquet("D:/out_20190820")
@@ -24,14 +27,13 @@ object AppRpt {
       .map(arr => (arr(4), arr(1)))
 
 
-
     val logs: Map[String, String] = rdd.collect().toMap
     logs.foreach(println)
     //将字典数据进行广播
     val broadcastMediaInfo: Broadcast[Map[String, String]] = sc.broadcast(logs)
 
-
-    val res = df.map(row => {
+    import spark.implicits._
+    val res: RDD[(String, Double, Double, Double, Double, Double, Double, Double, Double, Double)] = df.map(row => {
       //增加key:appname.并判断其是否为空
       var appname: String = row.getAs[String]("appname")
       if (StringUtils.isBlank(appname)) {
@@ -52,7 +54,7 @@ object AppRpt {
       val click = RptUtils.click(requestmode, iseffective)
       val ad = RptUtils.Ad(iseffective, isbilling, isbid, iswin, adorderid, winprice, adpayment)
       (appname, request ++ click ++ ad)
-    }).reduceByKey((list1, list2) =>
+    }).rdd.reduceByKey((list1, list2) =>
       (list1 zip list2)
         .map(x => x._1 + x._2)
     ).map(x => {
@@ -61,14 +63,17 @@ object AppRpt {
     )
 
     res.collect().foreach(println)
+
+
     //    //Rdd转换为df存储在mysql中
-    //    val config = ConfigFactory.load()
-    //    val prop = new Properties()
-    //    prop.setProperty("user", config.getString("jdbc.user"))
-    //    prop.setProperty("password", config.getString("jdbc.password"))
-    //    res.toDF().write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
+    val dataframe: DataFrame = spark.createDataFrame(res)
+    val config = ConfigFactory.load()
+    val prop = new Properties()
+    prop.setProperty("user", config.getString("jdbc.user"))
+    prop.setProperty("password", config.getString("jdbc.password"))
+    dataframe.write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
 
-
+    spark.stop()
     sc.stop()
   }
 }

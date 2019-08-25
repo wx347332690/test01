@@ -11,12 +11,6 @@ object TagsDevice extends Tags {
     var list = List[(String, Int)]()
     val row = args(0).asInstanceOf[Row]
     //获取设备信息
-    //    client match {
-    //      case v if v==1 => list:+=("D0001000"+ v,1)
-    //      case v if v==2 => list:+=("D0001000"+ v,1)
-    //      case v if v==3 => list:+=("D0001000"+ v,1)
-    //      case _  => list:+=("D00010004",1)
-    //    }
     val client: Int = row.getAs[Int]("client")
     list :+= ("D0001000" + client, 1)
     val networkmannerid: Int = row.getAs[Int]("networkmannerid")

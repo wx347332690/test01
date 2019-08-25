@@ -25,7 +25,7 @@ object TagUtils {
       case v if StringUtils.isNotBlank(v.getAs[String]("imeimd5")) => "IM5:" + v.getAs[String]("imeimd5")
       case v if StringUtils.isNotBlank(v.getAs[String]("macmd5")) => "MAC5:" + v.getAs[String]("macmd5")
       case v if StringUtils.isNotBlank(v.getAs[String]("openudidmd5")) => "OPEN5:" + v.getAs[String]("openudidmd5")
-      case v if StringUtils.isNotBlank(v.getAs[String]("androididmd5 ")) => "AN5:" + v.getAs[String]("androididmd5")
+      case v if StringUtils.isNotBlank(v.getAs[String]("androididmd5")) => "AN5:" + v.getAs[String]("androididmd5")
       case v if StringUtils.isNotBlank(v.getAs[String]("idfamd5")) => "IDFA5:" + v.getAs[String]("idfamd5")
       case v if StringUtils.isNotBlank(v.getAs[String]("imeisha1")) => "IM1:" + v.getAs[String]("imeisha1")
       case v if StringUtils.isNotBlank(v.getAs[String]("macsha1")) => "MAC1:" + v.getAs[String]("macsha1")

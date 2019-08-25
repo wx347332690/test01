@@ -2,10 +2,10 @@ package Rpt
 
 import Utils.{DBConnectionPool, RptUtils}
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 
-object AppRpt {
+object AppRpt02 {
   def main(args: Array[String]): Unit = {
     // 初始化环境
     val conf: SparkConf = new SparkConf()
@@ -14,8 +14,7 @@ object AppRpt {
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 
     val sc: SparkContext = new SparkContext(conf)
-
-    val spark  = new SQLContext(sc)
+    val spark  = SparkSession.builder().config(conf).getOrCreate()
     // 加载数据库连接的信息
     //    val load: Config = ConfigFactory.load()
     // 获取数据库链接信息
@@ -36,7 +35,7 @@ object AppRpt {
     // 读取需要统计的文件内容
     val df: DataFrame = spark.read.parquet("D://out_20190820")
 
-
+      import spark.implicits._
     df.map(row => {
       // 把需要的字段全部取出
       val requestmode: Int = row.getAs[Int]("requestmode")
@@ -65,14 +64,14 @@ object AppRpt {
       // 使用AppId从字典集获取APPName，如果没有则使用原始APPName
       .map(res => {
       (appInfo.value.getOrElse(res._1, res._2), res._3)
-    })
+    }).rdd
       // 使用拉链将value求和
       .reduceByKey((list1, list2) => {
       list1.zip(list2).map(t => t._1 + t._2)
     })
       // 转为一个大元组方便使用
       .map(res => {
-      (res._1, res._2(0), res._2(1), res._2(2), res._2(3), res._2(4), res._2(5), res._2(6), res._2(7), res._2(8))
+      (res._1, res._2.head, res._2(1), res._2(2), res._2(3), res._2(4), res._2(5), res._2(6), res._2(7), res._2(8))
     })
       // 使用数据库连接池写入到MySQL
       // 使用此方式需要先在数据库中建立对应的表
