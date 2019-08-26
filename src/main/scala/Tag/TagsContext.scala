@@ -1,12 +1,15 @@
 package Tag
 
-import java.util.Properties
-
-import Utils.{RedisPooluUtils, TagUtils}
+import Utils.TagUtils
 import com.typesafe.config.ConfigFactory
+import org.apache.hadoop.hbase.client.{ConnectionFactory, Put}
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable
+import org.apache.hadoop.hbase.mapred.TableOutputFormat
+import org.apache.hadoop.hbase.util.Bytes
+import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
+import org.apache.hadoop.mapred.JobConf
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
-
 
 /**
   * 上下文标签
@@ -20,10 +23,46 @@ object TagsContext {
     //    val Array(inputhPath, outputPath, dirPath, stopPath) = args
 
     //创建上下文,执行入口 并设置序列化方式,采用kryo的序列化方式,比默认的序列化方式性能高
-    val conf = new SparkConf().setAppName(this.getClass.getName).setMaster("local[1]")
+    val conf = new SparkConf().setAppName(this.getClass.getName).setMaster("local[*]")
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     val sc = new SparkContext(conf)
     val spark = SparkSession.builder().config(conf).getOrCreate()
+
+    /**
+      * 存储到hbase的过程
+      */
+    //TODO 调用hbase API
+    //加载配置文件
+    val load = ConfigFactory.load()
+    val hbaseTableName = load.getString("hbase.TableName")
+    //创建Hadoop任务
+    val configuration = sc.hadoopConfiguration
+    configuration.set("hbase.zookeeper.quorum", load.getString("hbase.host"))
+    //创建HbaseConnection
+    val hbcon = ConnectionFactory.createConnection(configuration)
+    val hbadmin = hbcon.getAdmin
+    //判断表是否存在可用
+    if (!hbadmin.tableExists(TableName.valueOf(hbaseTableName))) {
+      //创建表操作
+      //创建表
+      val tableDescriptor = new HTableDescriptor(TableName.valueOf(hbaseTableName))
+      //创建列簇
+      val descriptor = new HColumnDescriptor("tags")
+      //将加载到表中并注册该表
+      tableDescriptor.addFamily(descriptor)
+      hbadmin.createTable(tableDescriptor)
+      //关闭hbase连接
+      hbadmin.close()
+      hbcon.close()
+    }
+
+
+    //TODO 创建JobConf(hadoop任务)
+    val jobconf = new JobConf(configuration)
+    //指定输出类型
+    jobconf.setOutputFormat(classOf[TableOutputFormat])
+    //此时指定输出的表,对应的表名
+    jobconf.set(TableOutputFormat.OUTPUT_TABLE, hbaseTableName)
 
     val df: DataFrame = spark.read.parquet("D:\\out_20190820")
     df.show()
@@ -33,6 +72,7 @@ object TagsContext {
       .map(arr => (arr(4), arr(1)))
       .collectAsMap()
 
+
     //将处理好的数据广播
     val broadcast = sc.broadcast(map)
     //获取停用词库
@@ -41,17 +81,17 @@ object TagsContext {
     val bcstopword = sc.broadcast(stopword)
 
     //使用redis存储的字典集实现指标
-    df.foreachPartition(df => {
-      val jedis = RedisPooluUtils.getRedis()
-      df.map(row => {
-        val appList = TagsAppRedis.makeTags(row, jedis)
-        appList
-      }).foreach(println)
-      jedis.close()
-    })
-import spark.implicits._
+    //    df.foreachPartition(df => {
+    //      val jedis = RedisPooluUtils.getRedis()
+    //      df.map(row => {
+    //        val appList = TagsAppRedis.makeTags(row, jedis)
+    //        appList
+    //      }).foreach(println)
+    //      jedis.close()
+    //    })
+    import spark.implicits._
     //    过滤符合id的数据
- df.filter(TagUtils.OneUserId)
+    df.filter(TagUtils.OneUserId)
       //所有的标签都在内部实现
       .map(row => {
       //取出用户id
@@ -68,16 +108,30 @@ import spark.implicits._
       (list1 ::: list2)
         .groupBy(_._1)
         .mapValues(_.foldLeft[Int](0)(_ + _._2))
-        .toList).foreach(println)
+        .toList)
+      //在此处开始往hbase中存储数据,将对应的rowkey存进去
+      .map {
+      //偏函数(模式匹配的一种)
+        case (userid, userTag) => {
+          //将对应的rowkey和列对应起来
+          val put = new Put(Bytes.toBytes(userid))
+          //处理规范标签
+          val tags = userTag.map(t => t._1 + "," + t._2).mkString(",")
+          //将标签(rowkey)加入到列中
+          put.addImmutable(Bytes.toBytes("tags"), Bytes.toBytes("20190826"), Bytes.toBytes(tags))
+          //返回值
+          (new ImmutableBytesWritable(), put)
+        }
+        //存入到hbase对应表中的hadoop方法
+      }.saveAsHadoopDataset(jobconf)
 
 
-
-    val config = ConfigFactory.load()
-    val prop = new Properties()
-    prop.setProperty("user", config.getString("jdbc.user"))
-    prop.setProperty("password", config.getString("jdbc.password"))
-//    ds.write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
-    spark.stop()
-    sc.stop()
+//    val config = ConfigFactory.load()
+//    val prop = new Properties()
+//    prop.setProperty("user", config.getString("jdbc.user"))
+//    prop.setProperty("password", config.getString("jdbc.password"))
+//    df.write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
+//    spark.stop()
+//    sc.stop()
   }
 }

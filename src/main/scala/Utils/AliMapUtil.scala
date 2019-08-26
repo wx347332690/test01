@@ -9,8 +9,8 @@ object AliMapUtil {
   //获取高德地图商圈信息
   def getBussinessFromAliMap(long: Double, lat: Double): String = {
     val location = long + ","+ lat
-    val urlStr = "https://restapi.amap.com/v3/geocode/regeo?&location="+location+"&key=2d24d3f8f2e10bca938db3886f690fc3&radius=1000&extensions=all"
-//    https://restapi.amap.com/v3/place/text?keywords=北京大学&city=beijing&output=xml&offset=20&page=1&key=<用户的key>&extensions=all
+    val urlStr = "https://restapi.amap.com/v3/geocode/regeo?&location="+location+"&key=fc141c70afa2cc2b107ae1cacd379c0b&radius=1000&extensions=all"
+
     //调用请求
     val jsonstr: String = HttpUtil.get(urlStr)
     //解析json串

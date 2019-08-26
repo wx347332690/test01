@@ -1,6 +1,7 @@
 package Etl
 
 import Utils.{SchemaUtils, Utils2Type}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -32,7 +33,8 @@ object txt2Parquet {
     // 按要求切割，并且保证数据的长度大于等于85个字段，
     // 如果切割的时候遇到相同切割条件重复的情况下，需要切割的话，那么后面需要加上对应匹配参数
     // 这样切割才会准确 比如 ,,,,,,, 会当成一个字符切割 需要加上对应的匹配参数
-    val rowRDD = lines.map(t => t.split(",", t.length)).filter(_.length >= 85)
+    val rowRDD: RDD[Row] = lines.map(t => t.split(",", t.length))
+      .filter(_.length >= 85)
       .map(arr => {
         Row(
           arr(0),

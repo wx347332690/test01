@@ -1,13 +1,10 @@
 package Rpt
 
-import java.util.Properties
-
 import Utils.RptUtils
-import com.typesafe.config.ConfigFactory
 import org.apache.commons.lang.StringUtils
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 
 
@@ -66,12 +63,12 @@ object AppRpt {
 
 
     //    //Rdd转换为df存储在mysql中
-    val dataframe: DataFrame = spark.createDataFrame(res)
-    val config = ConfigFactory.load()
-    val prop = new Properties()
-    prop.setProperty("user", config.getString("jdbc.user"))
-    prop.setProperty("password", config.getString("jdbc.password"))
-    dataframe.write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
+//    val dataframe: DataFrame = spark.createDataFrame(res)
+//    val config = ConfigFactory.load()
+//    val prop = new Properties()
+//    prop.setProperty("user", config.getString("jdbc.user"))
+//    prop.setProperty("password", config.getString("jdbc.password"))
+//    dataframe.write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
 
     spark.stop()
     sc.stop()
