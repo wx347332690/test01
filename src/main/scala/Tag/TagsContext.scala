@@ -2,13 +2,15 @@ package Tag
 
 import Utils.TagUtils
 import com.typesafe.config.ConfigFactory
+import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.hadoop.hbase.client.{ConnectionFactory, Put}
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable
 import org.apache.hadoop.hbase.mapred.TableOutputFormat
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.hadoop.hbase.{HColumnDescriptor, HTableDescriptor, TableName}
 import org.apache.hadoop.mapred.JobConf
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.graphx.{Edge, Graph}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
 
 /**
@@ -89,49 +91,99 @@ object TagsContext {
     //      }).foreach(println)
     //      jedis.close()
     //    })
-    import spark.implicits._
+
     //    过滤符合id的数据
-    df.filter(TagUtils.OneUserId)
-      //所有的标签都在内部实现
+    val baseRDD: RDD[(List[String], Row)] = df.rdd
       .map(row => {
-      //取出用户id
-      val userId = TagUtils.getOneUserId(row)
-      //接下来通过row数据找到所有标签(按照需求)
+        val userList = TagUtils.getAllUserId(row)
+        (userList, row)
+      })
+
+
+    //构建点集合
+    val vertexRDD: RDD[(Long, List[(String, Int)])] = baseRDD.flatMap(tp => {
+      val row = tp._2
+      //所有标签
       val adList = TagsAd.makeTags(row)
-      val channelList = TagsChannel.makeTags(row)
-      val areaList = TagsArea.makeTags(row)
-      val deviceList = TagsDevice.makeTags(row)
       val appList = TagsApp.makeTags(row, broadcast)
       val keywordList = TagsKeyWords.makeTags(row, bcstopword)
-      (userId, adList ++ channelList ++ areaList ++ deviceList ++ appList ++ keywordList)
-    }).rdd.reduceByKey((list1, list2) =>
-      (list1 ::: list2)
-        .groupBy(_._1)
-        .mapValues(_.foldLeft[Int](0)(_ + _._2))
-        .toList)
-      //在此处开始往hbase中存储数据,将对应的rowkey存进去
-      .map {
-      //偏函数(模式匹配的一种)
-        case (userid, userTag) => {
-          //将对应的rowkey和列对应起来
-          val put = new Put(Bytes.toBytes(userid))
-          //处理规范标签
-          val tags = userTag.map(t => t._1 + "," + t._2).mkString(",")
-          //将标签(rowkey)加入到列中
-          put.addImmutable(Bytes.toBytes("tags"), Bytes.toBytes("20190826"), Bytes.toBytes(tags))
-          //返回值
-          (new ImmutableBytesWritable(), put)
+      val dvList = TagsDevice.makeTags(row)
+      val locationList = TagsArea.makeTags(row)
+      val AllTag = adList ++ appList ++ keywordList ++ dvList ++ locationList
+      //list(String,Int)
+      //保证其中一个点携带所有标签,同时也能保留所有的userid
+      //处理所有的点集合
+      val Vd = tp._1.map((_, 0)) ++ AllTag
+      tp._1.map(uId => {
+        //保证一个点携带标签
+        if (tp._1.head.equals(uId)) {
+          (uId.hashCode.toLong, Vd)
+        } else {
+          (uId.hashCode.toLong, List.empty)
         }
-        //存入到hbase对应表中的hadoop方法
-      }.saveAsHadoopDataset(jobconf)
+      })
+    })
+//    vertexRDD.take(50).foreach(println)
 
 
-//    val config = ConfigFactory.load()
-//    val prop = new Properties()
-//    prop.setProperty("user", config.getString("jdbc.user"))
-//    prop.setProperty("password", config.getString("jdbc.password"))
-//    df.write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
-//    spark.stop()
-//    sc.stop()
+    //构建边的集合
+    val edges: RDD[Edge[Int]] = baseRDD.flatMap(tp => {
+      tp._1.map(uId => Edge(tp._1.head.hashCode, uId.hashCode, 0))
+    })
+//    edges.take(20).foreach(println)
+
+    //构建图
+    val graph = Graph(vertexRDD,edges)
+    //取出顶点
+    val vertices = graph.connectedComponents().vertices
+    //处理所有的标签和id
+    vertices.join(vertexRDD).map {
+      case (uId, (conId, tagsAll)) => (conId,tagsAll)
+    }.reduceByKey((list1,list2)=>{
+      (list1++list2).groupBy(_._1).mapValues(_.map(_._2).sum).toList
+    })
+
+
+    //所有的标签都在内部实现
+    //      .map(row => {
+    //      //取出用户id
+    //      val userId = TagUtils.getOneUserId(row)
+    //      //接下来通过row数据找到所有标签(按照需求)
+    //      val adList = TagsAd.makeTags(row)
+    //      val channelList = TagsChannel.makeTags(row)
+    //      val areaList = TagsArea.makeTags(row)
+    //      val deviceList = TagsDevice.makeTags(row)
+    //      val appList = TagsApp.makeTags(row, broadcast)
+    //      val keywordList = TagsKeyWords.makeTags(row, bcstopword)
+    //      (userId, adList ++ channelList ++ areaList ++ deviceList ++ appList ++ keywordList)
+    //    }).rdd.reduceByKey((list1, list2) =>
+    //      (list1 ::: list2)
+    //        .groupBy(_._1)
+    //        .mapValues(_.foldLeft[Int](0)(_ + _._2))
+    //        .toList)
+    //      //在此处开始往hbase中存储数据,将对应的rowkey存进去
+          .map {
+          //偏函数(模式匹配的一种)
+            case (userid, userTag) => {
+              //将对应的rowkey和列对应起来
+              val put = new Put(Bytes.toBytes(userid))
+              //处理规范标签
+              val tags = userTag.map(t => t._1 + "," + t._2).mkString(",")
+              //将标签(rowkey)加入到列中
+              put.addImmutable(Bytes.toBytes("tags"), Bytes.toBytes("20190827"), Bytes.toBytes(tags))
+              //返回值
+              (new ImmutableBytesWritable(), put)
+            }
+            //存入到hbase对应表中的hadoop方法
+          }.saveAsHadoopDataset(jobconf)
+
+
+    //    val config = ConfigFactory.load()
+    //    val prop = new Properties()
+    //    prop.setProperty("user", config.getString("jdbc.user"))
+    //    prop.setProperty("password", config.getString("jdbc.password"))
+    //    df.write.mode(SaveMode.Append).jdbc(config.getString("jdbc.url"), config.getString("jdbc.TableName"), prop)
+        spark.stop()
+        sc.stop()
   }
 }

@@ -11,7 +11,6 @@ object TagsBusiness extends Tags {
     * 打标签的统一接口
     */
   override def makeTags(args: Any*): List[(String, Int)] = {
-
     var list =List[(String,Int)]()
     // 解析参数
     val row = args(0).asInstanceOf[Row]
@@ -48,6 +47,7 @@ object TagsBusiness extends Tags {
     //如果调用高德地图商圈,需要将此次商圈存入redis
       redis_insertBusiness(geoHash,business)
     }
+    redis_insertBusiness(geoHash,business)
     business
   }
 
